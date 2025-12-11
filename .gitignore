@@ -1,0 +1,6 @@
+# Folders to ignore
+
+
+# Files to ignore
+iNeuron_gRNA_DEGs/*.qs2
+iPSC_gRNA_DEGs/*.qs2

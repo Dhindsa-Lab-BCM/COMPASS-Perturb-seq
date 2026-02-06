@@ -95,6 +95,9 @@ grna.calls.zero <- data.frame(cell_barcode = zero_cells,
 cleanser_posterior_gb <- dplyr::bind_rows(list(cleanser_posterior_gb, grna.calls.zero))
 cleanser_posterior_gb$cell_barcode_num_features_gRNA <- paste0(cleanser_posterior_gb$cell_barcode, "_", cleanser_posterior_gb$num_features, "_", cleanser_posterior_gb$feature_call)
 print(length(unique(cleanser_posterior_gb$cell_barcode_num_features_gRNA)))
+
+# Saving csv file
+#write.csv(x = cleanser_posterior_gb, file = "iNeuron_tables/protospacer_calls_per_cell_CLEANSER.csv", row.names = FALSE)
 ```
 
 ## 2.2 UMI Cutoff >= 5
@@ -202,6 +205,45 @@ print(umi_hist)
 ```{r}
 
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -16,13 +16,8 @@ dir_10x <- "/mnt/mass_storage1/mass_storage_projects/compass/"
 
 
 # Reading in the processed seurat objects
-so <- qs_read(file = paste0(dir_10x, "seurat_objects/2_iNeuron_Mixscale.qs2"))
+so <- qs_read(file = paste0(dir_10x, "seurat_objects/2_integrated_Mixscale_filt.qs2"))
 meta <- so@meta.data
-
-
-# Getting a list of perturbations per gRNA
-gRNA_PRTBs <- sort(unique(so$NT_gRNA))
-gRNA_PRTBs <- gRNA_PRTBs[gRNA_PRTBs != "Non-targeting"]
 
 
 
@@ -43,25 +38,52 @@ gRNA_PRTBs <- gRNA_PRTBs[gRNA_PRTBs != "Non-targeting"]
 
 
 
+# Getting a list of perturbations per gRNA
+#gRNA_PRTBs <- sort(unique(so$NT_gRNA))
+#gRNA_PRTBs <- gRNA_PRTBs[gRNA_PRTBs != "NonTargeting"]
+
+
+
 # Running differential expression per gRNA with Mixscale
-de_res_gRNA <- Mixscale::Run_wmvRegDE(object = so,   #so or so_small
+#de_res_gRNA <- Mixscale::Run_wmvRegDE(object = so,   #so or so_small
+#                                      assay = "RNA", 
+#                                      slot = "counts",
+#                                      labels = "NT_gRNA", 
+#                                      nt.class.name = "NonTargeting",
+#                                      PRTB_list = gRNA_PRTBs,  #gRNA_PRTBs or gRNA_PRTBs_filt
+#                                      logfc.threshold = 0,
+#                                      split.by = "cell_type",
+#                                      verbose = TRUE,
+#                                      full.results = FALSE)
+
+
+# Getting a list of perturbations per target gene
+gene_PRTBs <- sort(unique(so$target_gene))
+gene_PRTBs <- gene_PRTBs[gene_PRTBs != "NonTargeting"]
+
+
+# Running differential expression per filtered gene with Mixscale
+de_res_gene <- Mixscale::Run_wmvRegDE(object = so,   #so or so_filt
                                       assay = "RNA", 
                                       slot = "counts",
-                                      labels = "NT_gRNA", 
-                                      nt.class.name = "Non-targeting",
-                                      PRTB_list = gRNA_PRTBs,  #gRNA_PRTBs or gRNA_PRTBs_filt
+                                      labels = "target_gene", 
+                                      nt.class.name = "NonTargeting",
+                                      PRTB_list = gene_PRTBs,
                                       logfc.threshold = 0,
-                                      split.by = NULL,
+                                      split.by = "cell_type",
                                       verbose = TRUE,
                                       full.results = FALSE)
+
+# Saving the weighted differential expression per target gene list
+qs_save(object = de_res_gene, file = "integrative_tables/weighted_Mixscale_DEGs_per_target-gene.qs2")
 
 
 
 # Saving the output
 print("Done with differential expression - saving output DEG list!")
 #export_filename <- as.character(args[8])
-export_filename <- "iNeuron_Mixscale_DEGs"
-qs_save(object = de_res_gRNA, file = paste0("iNeuron_gRNA_DEGs/", export_filename, ".qs2"))
+export_filename <- "integrated_Mixscale_DEGs"
+qs_save(object = de_res_gRNA, file = paste0("integrative_tables/", export_filename, ".qs2"))
 
 
 

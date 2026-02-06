@@ -5,18 +5,18 @@
 # Github: https://github.com/Gersbachlab-Bioinformatics/CLEANSER?tab=readme-ov-file
 
 # File directory for 10X output
-tenX_out="/mnt/mass_storage1/mass_storage_projects/compass/COM-iN-none-aggr/count/batch1/"
+tenX_out="/mnt/mass_storage1/mass_storage_projects/compass/COM-iP-none-aggr/count/batch1/"
 echo $tenX_out
 
 # Converting to a suitable matrix format for guide information only from CellRanger output
 cr2cleanser --matrix-market ${tenX_out}matrix.mtx.gz \
     --features ${tenX_out}features.tsv.gz \
-    --output CLEANSER/matrix.mtx
+    --output CLEANSER/iPSC_matrix.mtx
 
 # Running cleanser - this outputs two tsv files. You can use "read.csv" with the "sep = '\t'" option in R to import them!
-cleanser --input CLEANSER/matrix.mtx \
-    --posteriors-output CLEANSER/posteriors-output \
-    --samples-output CLEANSER/sample-output \
+cleanser --input CLEANSER/iPSC_matrix.mtx \
+    --posteriors-output CLEANSER/iPSC_posteriors-output \
+    --samples-output CLEANSER/iPSC_sample-output \
     --seed 67 \
     --parallel-runs 10 \
     --direct-capture

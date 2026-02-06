@@ -1,15 +1,24 @@
 # Folders to ignore
 .Rproj.user
+pathways/
 
 # Files to ignore
 .RData
 .Rhistory
 iNeuron_gRNA_DEGs/*.qs2
 iPSC_gRNA_DEGs/*.qs2
-CLEANSER/matrix.mtx
-CLEANSER/posteriors-output
-CLEANSER/posteriors-output.csv
-CLEANSER/sample-output
-CLEANSER/sample-output.csv
+CLEANSER/iNeuron_matrix.mtx
+CLEANSER/iNeuron_posteriors-output
+CLEANSER/iNeuron_posteriors-output.csv
+CLEANSER/iNeuron_sample-output
+CLEANSER/iNeuron_sample-output.csv
+CLEANSER/iNeuron_protospacer_calls_per_cell_CLEANSER.csv
+CLEANSER/iPSC_matrix.mtx
+CLEANSER/iPSC_posteriors-output
+CLEANSER/iPSC_posteriors-output.csv
+CLEANSER/iPSC_sample-output
+CLEANSER/iPSC_sample-output.csv
+CLEANSER/iPSC_protospacer_calls_per_cell_CLEANSER.csv
 iNeuron_target_DEGs/*.qs2
 NDD_iNeuron_gRNA_DEGs/*.qs2
+integrative_tables/*.qs2

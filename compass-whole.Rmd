@@ -36,6 +36,8 @@ library(DESeq2)
 library(Matrix)
 library(fgsea)
 library(ggpubr)
+library(GO.db)
+library(rrvgo)
 #library(sceasy)
 #library(reticulate)
 #options(reticulate.conda.binary = "/home/toofastdan/apps/miniconda3/condabin/conda")
@@ -50,7 +52,7 @@ enableWGCNAThreads(nThreads = 10)
 
 ```{r}
 # Reading the processed seurat object with Mixscale scores and filtered gRNAs
-so_filt <- qs_read(file = paste0(dir_10x, "seurat_objects/2_integrated_Mixscale_filt.qs2"))
+so <- qs_read(file = paste0(dir_10x, "seurat_objects/1_COMPASS_integrated_processed.qs2"))
 ```
 
 
@@ -124,13 +126,18 @@ cleanser_posterior <- merge(x = cleanser_posterior, y = crispr_counts_df, all.x 
 
 ```{r}
 # Plotting distribution of posterior probabilities
-pp_dist <- cleanser_posterior %>% ggplot(aes(x = log10(posterior_probability))) + 
+pp_dist <- cleanser_posterior %>% 
+  ggplot(aes(x = log10(posterior_probability))) + 
   geom_histogram(binwidth = 0.1, fill = "lightblue", color = "black") + 
-  geom_vline(xintercept = c(log10(0.5), log10(0.1)), color = "red", linetype = "dashed") + 
+  geom_vline(xintercept = c(log10(0.5)), color = "red", linetype = "dashed", linewidth = 1) + 
+  scale_x_continuous(breaks = seq(floor(min(log10(cleanser_posterior$posterior_probability), na.rm = TRUE)), 0, by = 1)) +
   scale_y_continuous(expand = c(0, 0)) +
-  labs(x = "log10(posterior probability)", title = "Distribution of Posterior Probabilities from CLEANSER") + 
-  theme_classic() + 
-  theme(plot.title = element_text(hjust = 0.5))
+  labs(x = "log10(Posterior Probability)", y = "sgRNA Assignment Counts", title = "sgRNA Distribution of Posterior Probabilities") + 
+  theme_classic(base_size = 20) + 
+  theme(
+    plot.title = element_text(hjust = 0.5, size = rel(1.2)),
+    axis.text = element_text(color = "black")
+  )
 print(pp_dist)
 
 # Bin stats 
@@ -151,7 +158,7 @@ pp_umi_dist <- bin_stats %>% ggplot(aes(x = bin_group, y = mean_umi, size = log(
 print(pp_umi_dist)
 
 # Saving plots
-#ggsave(plot = pp_dist, filename = "iNeuron_figures/CLEANSER_posterior_probabilities_histogram.png", width = 3000, height = 2000, units = "px", dpi = 300)
+#ggsave(plot = pp_dist, filename = "iNeuron_figures/CLEANSER_posterior_probabilities_histogram.pdf", width = 3000, height = 2000, units = "px", dpi = 300)
 #ggsave(plot = pp_umi_dist, filename = "iNeuron_figures/CLEANSER_posterior_probabilities_UMIs.png", width = 3000, height = 2000, units = "px", dpi = 300)
 ```
 
@@ -199,16 +206,19 @@ num.grna.calls$Var1 <- factor(num.grna.calls$Var1, levels = c("0", "1", "2", "3"
 # Plotting
 num.grna.hist <- num.grna.calls %>% ggplot(aes(x = Var1, y = Freq)) + 
   geom_bar(stat = "identity") + 
-  geom_text(aes(label = Freq), vjust = -0.5) + 
+  geom_text(aes(label = Freq), vjust = -0.5, size = 6) + 
   scale_y_continuous(expand = c(0, 0)) +
   expand_limits(y = max(num.grna.calls$Freq) * 1.1) +
-  labs(x = "number of gRNAs per cell", y = "number of cells", title = "Number of gRNA Assignments per Cell: iNeurons") + 
-  theme_classic() +
-  theme(plot.title = element_text(hjust = 0.5))
+  labs(x = "Number of sgRNAs per Cell", y = "Number of Cells", title = "Number of sgRNA Assignments per Cell") + 
+  theme_classic(base_size = 20) + 
+  theme(
+    plot.title = element_text(hjust = 0.5, size = rel(1.2)),
+    axis.text = element_text(color = "black")
+  )
 print(num.grna.hist)
 
 # Saving plot
-#ggsave(plot = num.grna.hist, filename = "iNeuron_figures/CLEANSER_guide_counts_histogram.png", width = 3000, height = 2000, units = "px", dpi = 300)
+#ggsave(plot = num.grna.hist, filename = "iNeuron_figures/CLEANSER_guide_counts_histogram.pdf", width = 2500, height = 2000, units = "px", dpi = 300)
 ```
 
 ### Filtering for cells that got 1 gRNA, adding gRNA metadata, and filtering the seurat object
@@ -360,7 +370,7 @@ gc()
 
 ```{r}
 # Adding seurat objects to the list
-#so_list[["compass_iNeuron"]] <- so_filt
+so_list[["compass_iNeuron"]] <- so_filt
 
 # Optional save as a processed seurat object
 #qs_save(object = so_filt, file = paste0(dir_10x, "seurat_objects/1_iNeuron_processed.qs2"))
@@ -663,7 +673,7 @@ gc()
 
 ```{r}
 # Adding seurat objects to the list
-#so_list[["compass_iPSC"]] <- so_filt
+so_list[["compass_iPSC"]] <- so_filt
 
 # Optional save as a processed seurat object
 #qs_save(object = so_filt, file = paste0(dir_10x, "seurat_objects/1_iPSC_processed.qs2"))
@@ -1254,6 +1264,11 @@ print(UMAP_plot)
 #ggsave(plot = UMAP_plot, filename = "integrative_figures/UMAP_plot_neuro-markers.png", width = 3000, height = 2000, dpi = 300, units = "px")
 ```
 
+```{r}
+# Saving the seurat object
+#qs_save(object = so, file = paste0(dir_10x, "seurat_objects/1_COMPASS_integrated_processed.qs2"))
+```
+
 
 
 # 4. Integrative analysis (optional)
@@ -1309,10 +1324,10 @@ so <- subset(so, gRNA %in% c(ntc_grnas, targeting_grnas))
 
 ```{r}
 # Saving the processed, integrated seurat object
-qs_save(object = so, file = paste0(dir_10x, "seurat_objects/1_integrated_processed_compass.qs2"))
+#qs_save(object = so, file = paste0(dir_10x, "seurat_objects/1_integrated_processed_compass.qs2"))
 
 # Importing the processed, integrated seurat object
-#so <- qs_read(file = paste0(dir_10x, "seurat_objects/1_integrated_processed_NTC.qs2"))
+so <- qs_read(file = paste0(dir_10x, "seurat_objects/1_integrated_processed_compass.qs2"))
 meta <- so@meta.data
 ```
 
@@ -1470,39 +1485,10 @@ pairwise_degs2 <- dplyr::distinct(pairwise_degs2)
 ## 7.1 Wilcoxon on Target Genes
 
 ```{r}
-#Idents(so_filt) <- "NT_gRNA"
-#de_fast_wilcox <- wilcoxauc(so_filt, group_by = "NT_gRNA")
-#so_filt <- subset(so, cell_type == "iNeuron")
-#Idents(so_filt) <- "NT_gRNA"
-#target_gRNAs <- setdiff(unique(so_filt$NT_gRNA), "NonTargeting")
-#gRNA_counts <- table(so_filt$NT_gRNA)
-#n_total <- length(target_gRNAs)
-#n_start = 1
-#full_degs_list <- list()
-#target_gene_deg_list <- list()
-
-#so_sub <- subset(so_filt, idents = c("SETBP1-g6", "NonTargeting"))
-#res <- wilcoxauc(so_sub, group_by = "NT_gRNA", assay = "data", seurat_assay = "RNA") %>% dplyr::filter(group == "SETBP1-g6")
-
-#degs_temp <- FindMarkers(so_sub, ident.1 = "SETBP1-g6", ident.2 = "NonTargeting", logfc.threshold = 0, test.use = "wilcox")
-#res$avg_log2FC <- res$logFC / log(2)
-```
-
-```{r}
-deg_list <- lapply(target_gRNAs, function(g) {
-  #print(g)
-})
-```
-
-
-```{r}
 # iNeuron or iPSC
-so_filt <- subset(so, cell_type == "iNeuron")
+so_filt <- subset(so_filt, cell_type == "iPSC")  #change iPSC or iNeuron
 
-# Optional shuffling of guide labels for permutation testing
-set.seed(1)
-so_filt$NT_gRNA_shuffle <- sample(as.character(so_filt$NT_gRNA))
-Idents(so_filt) <- "NT_gRNA_shuffle"  #NT_gRNA or NT_gRNA_shuffle
+Idents(so_filt) <- "NT_gRNA"
 guides <- unique(so_filt$NT_gRNA)
 guides <- guides[guides != "NonTargeting"]
 gRNA_counts <- table(so_filt$NT_gRNA)
@@ -1511,9 +1497,7 @@ n_start = 1
 full_degs_list <- list()
 target_gene_deg_list <- list()
 
-sample_guides <- c("KMT2B-g4", "SETD1B-g6", "KMT2C-g9", "KMT2A-g6", "KDM6A-g1")
-
-for (gRNA in sample_guides) {
+for (gRNA in guides) {
   
   # Check for min cell count
   if (gRNA_counts[gRNA] < 3) {
@@ -1560,11 +1544,6 @@ for (gRNA in sample_guides) {
 ```
 
 ```{r}
-ex_degs_shuffle <- full_degs_list[[2]]
-```
-
-
-```{r}
 # Merging the list and filtering for effective gRNAs
 degs_target_wilcox <- dplyr::bind_rows(target_gene_deg_list)
 degs_target_hist <- degs_target_wilcox %>% ggplot(aes(x = cell_count)) + 
@@ -1572,11 +1551,11 @@ degs_target_hist <- degs_target_wilcox %>% ggplot(aes(x = cell_count)) +
   geom_vline(xintercept = 20) + 
   theme_classic()
 print(degs_target_hist)
-#degs_target_filt <- degs_target_wilcox %>% dplyr::filter(avg_log2FC <= log2(0.7) & p_val_adj < 0.05)
+degs_target_filt <- degs_target_wilcox %>% dplyr::filter(avg_log2FC <= log2(0.7) & FDR < 0.05)
 
 # Saving the list of DEGs
-#qs_save(object = full_degs_list, file = "integrative_tables/iNeuron_DEGs_wilcox.qs2")  #iPSC or iNeuron
-#write_xlsx(x = degs_target_wilcox, path = "integrative_tables/iNeuron_target-DEGs_wilcox.xlsx")
+#qs_save(object = full_degs_list, file = "integrative_tables/iPSC_DEGs_wilcox.qs2")  #iPSC or iNeuron
+#write_xlsx(x = degs_target_wilcox, path = "integrative_tables/iPSC_target-DEGs_wilcox.xlsx")
 
 # Importing the merged degs list - does not need any processing
 #full_degs_list <- qs_read(file = "integrative_tables/iNeuron_DEGs_wilcox.qs2")
@@ -1593,32 +1572,38 @@ degs_target_wilcox_total <- dplyr::bind_rows(list(degs_target_wilcox_iPSC, degs_
 degs_target_wilcox_total$fold_change <- 2^degs_target_wilcox_total$avg_log2FC
 degs_target_wilcox_total$percent_change <- (degs_target_wilcox_total$fold_change - 1) * 100
 
-gRNA_effectiveness_plot <- degs_target_wilcox_total %>% 
+select_targets <- c("KMT2A", "KMT2B", "KMT2C", "KMT2D", "SETBP1", "SETD1A", "SETD1B")
+gRNA_effectiveness_plot <- degs_target_wilcox_total %>% dplyr::filter(target_gene %in% select_targets) %>% 
+  dplyr::filter(cell_type == "iNeuron") %>%   #optional cell type filter
   ggplot(aes(x = gene, y = percent_change, color = regulation)) +
-  geom_hline(yintercept = c(0, -50), color = "red", linetype = "dashed") + 
-  geom_point() + 
+  geom_hline(yintercept = c(0, -50), color = "darkgrey", linetype = "dashed", linewidth = 1) + 
+  geom_point(size = 3.5, alpha = 0.8) + 
   #geom_text_repel(size = 3, max.overlaps = Inf, show.legend = FALSE) + #label = guide_replicate, 
-  facet_wrap(~cell_type, scales = "free", nrow = 2) + 
-  coord_cartesian(ylim = c(-100, 100)) +
+  #facet_wrap(~cell_type, scales = "free_y", nrow = 2) +   #optional facet_wrap for multiple cell types
+  coord_cartesian(ylim = c(-100, 20)) +
   scale_color_manual(values = c("blue", "lightgrey")) + 
-  labs(x = "Number of Cells per gRNA", y = "Number of DEGs per gRNA (Wilcoxon)", color = "Regulation") + 
-  theme_classic() + 
-  theme(strip.background = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1))
+  labs(x = "Target Gene", y = "Percent Knockdown", color = "Regulation", title = "Target Gene Knockdown per sgRNA") + 
+  theme_classic(base_size = 20) + 
+    theme(
+      strip.background = element_blank(),
+      axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1), # 45 degrees is often easier to read than 90
+      plot.title = element_text(hjust = 0.5, size = rel(1.2)),
+      legend.position = "top"
+    )
 print(gRNA_effectiveness_plot)
 
 # Saving the plot
-#ggsave(plot = gRNA_effectiveness_plot, filename ="integrative_figures/Wilcox_DEGs_per_gRNA.png", width = 4000, height = 3000, units = "px", dpi = 300)
+ggsave(plot = gRNA_effectiveness_plot, filename ="integrative_figures/Wilcox_DEGs_per_gRNA_iNeuron.png", width = 2200, height = 2200, units = "px", dpi = 300)
 ```
 
 ```{r}
 # Finding the overlapping gRNAs and the unique ones between iNeurons and iPSCs
-iPSC_guides <- degs_target_wilcox_iPSC %>% dplyr::filter(p_val_adj < 0.05 & avg_log2FC < -0.2 & cell_count >= 20)
+iPSC_guides <- degs_target_wilcox_iPSC %>% dplyr::filter(FDR < 0.05 & avg_log2FC < -0.2 & cell_count >= 20)
 gRNA_counts <- table(iPSC_guides$gene)
 gRNA_counts <- gRNA_counts[gRNA_counts > 1]
 iPSC_guides <- iPSC_guides %>% dplyr::filter(gene %in% names(gRNA_counts)) %>% dplyr::pull(gRNA)
 
-iNeuron_guides <- degs_target_wilcox_iNeuron %>% dplyr::filter(p_val_adj < 0.05 & avg_log2FC < -0.2 & cell_count >= 20)
+iNeuron_guides <- degs_target_wilcox_iNeuron %>% dplyr::filter(FDR < 0.05 & avg_log2FC < -0.2 & cell_count >= 20)
 gRNA_counts <- table(iNeuron_guides$gene)
 gRNA_counts <- gRNA_counts[gRNA_counts > 1]
 iNeuron_guides <- iNeuron_guides %>% dplyr::filter(gene %in% names(gRNA_counts)) %>% dplyr::pull(gRNA)
@@ -1651,7 +1636,6 @@ grna_table <- grna_table %>% dplyr::group_by(target_gene) %>%
 )
 ```
 
-
 ```{r}
 # Scatter plot of iPSC vs iNeuron percent changes
 w_wide <- degs_target_wilcox_total %>% tidyr::pivot_wider(names_from = cell_type, values_from = avg_log2FC, id_cols = gRNA)
@@ -1669,7 +1653,7 @@ gRNA_scatter <- w_wide %>% ggplot(aes(x = iPSC, y = iNeuron, color = target_gene
   geom_point() + 
   geom_smooth(method = "lm", color = "black", se = TRUE) + # Adds the best fit line
   coord_cartesian(xlim = c(-4, 1), ylim = c(-4, 1)) + 
-  labs(x = "iPSC: log2(FC)", y = "iNeuron: log2(FC)", color = "Target Gene", title = "Concordance in gRNAs between iPSCs and iNeurons", subtitle = "R-squared = 0.60; p < 2.2e-16") + 
+  labs(x = "iPSC: log2(FC)", y = "iNeuron: log2(FC)", color = "Target Gene", title = "Concordance in gRNAs between iPSCs and iNeurons", subtitle = "R-squared = 0.584; p < 2.2e-16") + 
   theme_classic() + 
   theme(plot.title = element_text(hjust = 0.5),
         plot.subtitle = element_text(hjust = 0.5))
@@ -1681,7 +1665,160 @@ print(gRNA_scatter)
 
 
 
-## 7.2 Weighted Mixscale Differential Expression per gRNA - optional
+## 7.2 Permutation testing - optional can skip
+
+```{r}
+# iNeuron or iPSC
+so_filt <- subset(so, cell_type == "iPSC")
+
+# Optional shuffling of guide labels for permutation testing
+set.seed(1)
+so_filt$NT_gRNA_shuffle <- sample(as.character(so_filt$NT_gRNA))
+Idents(so_filt) <- "NT_gRNA_shuffle"
+guides <- unique(so_filt$NT_gRNA_shuffle)
+guides <- guides[guides != "NonTargeting"]
+gRNA_counts <- table(so_filt$NT_gRNA_shuffle)
+n_total <- length(guides)
+n_start = 1
+full_shuffle_list <- list()
+target_gene_shuffle_list <- list()
+
+for (gRNA in guides) {
+  
+  # Check for min cell count
+  if (gRNA_counts[gRNA] < 3) {
+    print(paste0(gRNA, " has fewer than 3 cells - skipping. ", n_start, "/", n_total))
+    n_start <- n_start + 1
+    next
+  }
+  
+  # Wilcox differential expression
+  degs_temp <- FindMarkers(so_filt, ident.1 = gRNA, ident.2 = "NonTargeting", logfc.threshold = 0, test.use = "wilcox")
+  degs_temp <- rownames_to_column(degs_temp, var = "gene")
+  degs_temp$FDR <- p.adjust(p = degs_temp$p_val, method = "fdr")
+  
+  # DEG regulation direction
+  degs_temp <- degs_temp %>% dplyr::mutate(
+    regulation = dplyr::case_when(
+      FDR < 0.05 & avg_log2FC > 0.2 ~ "up",
+      FDR < 0.05 & avg_log2FC < -0.2 ~ "down"
+    )
+  )
+  table_degs <- table(degs_temp$regulation)
+  degs_temp$up_DEGs <- table_degs["up"]
+  degs_temp$down_DEGs <- table_degs["down"]
+  degs_temp$total_DEGs <- sum(unique(degs_temp$up_DEGs), unique(degs_temp$down_DEGs), na.rm = TRUE)
+  
+  # gRNA info and tidying columns
+  degs_temp$gRNA <- gRNA
+  degs_temp$cell_count <- gRNA_counts[gRNA]
+  degs_temp <- degs_temp %>% tidyr::separate(col = "gRNA", into = c("target_gene", "guide_replicate"), sep = "-", remove = FALSE)
+  degs_temp <- degs_temp[, c("gene", "gRNA", "target_gene", "guide_replicate", "pct.1", "pct.2", "avg_log2FC", "p_val", "p_val_adj", "FDR", "regulation", "up_DEGs", "down_DEGs", "total_DEGs", "cell_count")]
+  
+  # Adding to list
+  full_shuffle_list[[gRNA]] <- degs_temp
+  
+  # Filtering for target gene degs only
+  gene <- gsub("-g[0-9]+$", "", gRNA)
+  degs_temp_filt <- degs_temp[degs_temp$gene == gene, ]
+  target_gene_shuffle_list[[gRNA]] <- degs_temp_filt
+  
+  # Progress status report
+  print(paste0("Done with: ", gRNA, ". ", n_start, "/", n_total))
+  n_start <- n_start + 1
+}
+```
+
+```{r}
+full_degs_df <- dplyr::bind_rows(full_degs_list)
+full_degs_df$gene_gRNA <- paste0(full_degs_df$gene, "_", full_degs_df$gRNA)
+full_degs_df <- full_degs_df %>% dplyr::select(gene_gRNA, p_val)
+colnames(full_degs_df) <- c("gene_gRNA", "p_val_observed")
+full_degs_df$real <- "observed"
+
+full_shuffle_df <- dplyr::bind_rows(full_shuffle_list)
+full_shuffle_df$gene_gRNA <- paste0(full_shuffle_df$gene, "_", full_shuffle_df$gRNA)
+full_shuffle_df <- full_shuffle_df %>% dplyr::select(gene_gRNA, p_val)
+colnames(full_shuffle_df) <- c("gene_gRNA", "p_val_expected")
+full_shuffle_df$real <- "expected"
+
+deg_comp <- merge(x = full_degs_df, y = full_shuffle_df, by = "gene_gRNA", all = TRUE)
+```
+
+```{r}
+# Plotting a permutation qq plot
+deg_plot_qq <- deg_comp %>% ggplot(aes(x = -log10(p_val_expected), y = -log10(p_val_observed))) + 
+  geom_point(alpha = 0.5) + 
+  geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+  scale_y_continuous(breaks = seq(0, max(-log10(deg_comp$p_val_observed), na.rm = TRUE) + 5, by = 5)) +
+  coord_cartesian(xlim = c(0, 25)) + 
+  labs(x = "-log10(permuted p value)", y = "-log10(observed p value)", title = "Permutation QQ Plot") + 
+  theme_classic() + 
+  theme(plot.title = element_text(hjust = 0.5))
+print(deg_plot_qq)
+
+# Saving the plot
+#ggsave(plot = deg_plot_qq, filename ="integrative_figures/permuted_deg_qq_plot.png", width = 2500, height = 2600, units = "px", dpi = 300)
+```
+
+```{r}
+# Histograms
+ex_histo <- deg_comp %>% ggplot(aes(x = -log10(p_val_expected))) + 
+  geom_histogram(binwidth = 1) + 
+  scale_y_log10(expand = c(0, 0)) +
+  theme_classic()
+print(ex_histo)
+
+ob_histo <- deg_comp %>% ggplot(aes(x = -log10(p_val_observed))) + 
+  geom_histogram(binwidth = 1) + 
+  scale_y_log10(expand = c(0, 0)) +
+  theme_classic()
+print(ob_histo)
+```
+
+```{r}
+# Density plots
+full_degs_df <- dplyr::bind_rows(full_degs_list)
+full_degs_df$gene_gRNA <- paste0(full_degs_df$gene, "_", full_degs_df$gRNA)
+full_degs_df <- full_degs_df %>% dplyr::select(gene_gRNA, p_val)
+full_degs_df$real <- "observed"
+
+full_shuffle_df <- dplyr::bind_rows(full_shuffle_list)
+full_shuffle_df$gene_gRNA <- paste0(full_shuffle_df$gene, "_", full_shuffle_df$gRNA)
+full_shuffle_df <- full_shuffle_df %>% dplyr::select(gene_gRNA, p_val)
+full_shuffle_df$real <- "expected"
+
+deg_comp_long <- rbind(full_degs_df, full_shuffle_df)
+deg_comp_long$real <- factor(x = deg_comp_long$real, levels = c("expected", "observed"))
+
+density_plot <- deg_comp_long %>% ggplot(aes(x = -log10(p_val), fill = real)) + 
+  geom_density(alpha = 0.5) +
+  #scale_y_continuous(trans = "pseudo_log", breaks = c(0, 0.1, 1, 5, 10)) +
+  labs(x = "-log10(p value)", y = "Density", fill = "Permuted") + 
+  theme_classic()
+print(density_plot)
+```
+
+```{r}
+ob_histo <- deg_comp_long %>% 
+  ggplot(aes(x = -log10(p_val), fill = real)) + 
+  geom_histogram(binwidth = 1, position = "identity", alpha = 0.4) +
+  scale_y_log10(expand = c(0, 0)) +
+  theme_classic() +
+  labs(y = "Log10 Count of Comparisons", x = "-log10(p-value)", fill = "Permuted")
+
+print(ob_histo)
+```
+
+```{r}
+# Exporting a tsv
+deg_comp_long <- deg_comp_long %>% tidyr::separate(col = gene_gRNA, into = c("gene", "gRNA"), sep = "_", remove = FALSE)
+#write.table(x = deg_comp_long, file = "integrative_tables/permute_vs_observed_p-values.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+```
+
+
+
+## 7.3 Weighted Mixscale Differential Expression per gRNA - optional
 
 ```{r}
 # Getting a list of perturbations per gRNA - run in separate R script 
@@ -1841,19 +1978,19 @@ degs_target_wilcox_total$fold_change <- 2^degs_target_wilcox_total$avg_log2FC
 degs_target_wilcox_total$percent_change <- (degs_target_wilcox_total$fold_change - 1) * 100
 
 # Finding the overlapping gRNAs and the unique ones between iNeurons and iPSCs
-iPSC_guides <- degs_target_wilcox_iPSC %>% dplyr::filter(p_val_adj < 0.05 & avg_log2FC < -0.2 & cell_count >= 20)
+iPSC_guides <- degs_target_wilcox_iPSC %>% dplyr::filter(FDR < 0.05 & avg_log2FC < -0.2 & cell_count >= 25)
 gRNA_counts <- table(iPSC_guides$gene)
 gRNA_counts <- gRNA_counts[gRNA_counts > 1]
 iPSC_guides <- iPSC_guides %>% dplyr::filter(gene %in% names(gRNA_counts)) %>% dplyr::pull(gRNA)
 
-iNeuron_guides <- degs_target_wilcox_iNeuron %>% dplyr::filter(p_val_adj < 0.05 & avg_log2FC < -0.2 & cell_count >= 20)
+iNeuron_guides <- degs_target_wilcox_iNeuron %>% dplyr::filter(FDR < 0.05 & avg_log2FC < -0.2 & cell_count >= 25)
 gRNA_counts <- table(iNeuron_guides$gene)
 gRNA_counts <- gRNA_counts[gRNA_counts > 1]
 iNeuron_guides <- iNeuron_guides %>% dplyr::filter(gene %in% names(gRNA_counts)) %>% dplyr::pull(gRNA)
 
 # Filtering the seurat object for gRNAs that worked
 so_filt <- subset(so, NT_gRNA %in% unique(c(iPSC_guides, iNeuron_guides, "NonTargeting")))
-meta <- so@meta.data
+so_filt <- JoinLayers(so_filt)
 ```
 
 ```{r}
@@ -1864,7 +2001,7 @@ so_filt <- CalcPerturbSig(
   slot = "data",
   gd.class = "target_gene",
   nt.cell.class = "NonTargeting",
-  reduction = "harmony",
+  reduction = "pca",  #or harmony
   ndims = 40,
   num.neighbors = 20,
   new.assay.name = "Perturb_by_gene",  
@@ -1891,10 +2028,10 @@ so_filt <- RunMixscale(
 
 ```{r}
 # Saving the processed gRNA-filtered seurat object with Mixscale scores per target gene
-#qs_save(object = so_filt, file = paste0(dir_10x, "seurat_objects/2_integrated_Mixscale_filt.qs2"))
+qs_save(object = so_filt, file = paste0(dir_10x, "seurat_objects/2_COMPASS_integrated_MixScale_filtered.qs2"))
 
 # Reading the processed seurat object with Mixscale scores and filtered gRNAs
-so_filt <- qs_read(file = paste0(dir_10x, "seurat_objects/2_integrated_Mixscale_filt.qs2"))
+#so_filt <- qs_read(file = paste0(dir_10x, "seurat_objects/2_integrated_Mixscale_filt_compass.qs2"))
 ```
 
 ```{r}
@@ -1938,16 +2075,16 @@ ridge <- ridge_iPSC + ridge_iNeuron
 print(ridge)
 
 # Saving the plot
-#ggsave(plot = ridge, filename = "integrative_figures/gene_ridge_plot.png", width = 2000, height = 4000, dpi = 300, units = "px")
+#ggsave(plot = ridge_iNeuron, filename = "integrative_figures/gene_ridge_plot_iNeuron.pdf", width = 2000, height = 1500, dpi = 300, units = "px")
 ```
 
 ```{r}
 # Mixscale score bins and target gene knockdown
 mixed_scatter <- Mixscale_ScatterPlot(object = so_filt, 
-                     nt.class.name = "Non-targeting", 
-                     slct.ident = unique(so_filt$target_gene)[unique(so_filt$target_gene) != "Non-targeting"][1:10], 
-                     nbin = 10, 
-                     facet_wrap = "gene") + NoLegend()
+                     nt.class.name = "NonTargeting",
+                     slct.ident = unique(so_filt$target_gene)[unique(so_filt$target_gene) != "NonTargeting"][1:10], 
+                     nbin = 10,
+                     facet_wrap = "target_gene") + NoLegend()
 print(mixed_scatter)
 
 # Saving the plot
@@ -2611,11 +2748,11 @@ de_res_gene <- Mixscale::Run_wmvRegDE(object = so_filt,   #so or so_filt
                                       full.results = FALSE)
 
 # Saving the weighted differential expression per target gene list
-#qs_save(object = de_res_gene, file = "integrative_tables/weighted_Mixscale_DEGs_per_target-gene.qs2")
+qs_save(object = de_res_gene, file = "integrative_tables/weighted_Mixscale_DEGs_per_target-gene.qs2")
 
 # Importing the weighted differential expression per target gene list
-de_res_gene <- qs_read(file = "integrative_tables/weighted_Mixscale_DEGs_per_target-gene.qs2")
-degs <- de_res_gene[["SETD1A"]]
+#de_res_gene <- qs_read(file = "integrative_tables/weighted_Mixscale_DEGs_per_target-gene.qs2")
+degs <- de_res_gene[["SETD1B"]]
 ```
 
 ```{r}
@@ -2633,11 +2770,11 @@ for (gene in names(de_res_gene)) {
   colnames(df) <- c("gene", "log2FC_iNeuron", "log2FC_iPSC", "beta_iNeuron", "beta_iPSC", "p_weight_iNeuron", "p_weight_iPSC", "DE_method")
   
   # iNeuron regulation
-  df$p_adj_iNeuron <- p.adjust(p = df$p_weight_iNeuron, method = "bonferroni")
+  df$FDR_iNeuron <- p.adjust(p = df$p_weight_iNeuron, method = "fdr")
   df <- df %>% dplyr::mutate(
     regulation_iNeuron = dplyr::case_when(
-      p_adj_iNeuron < 0.05 & log2FC_iNeuron >= 0.2 ~ "up",
-      p_adj_iNeuron < 0.05 & log2FC_iNeuron <= -0.2 ~ "down"  
+      FDR_iNeuron < 0.05 & log2FC_iNeuron >= 0.2 ~ "up",
+      FDR_iNeuron < 0.05 & log2FC_iNeuron <= -0.2 ~ "down"  
     )
   )
   df$regulation_iNeuron <- factor(x = df$regulation_iNeuron, levels = c("up", "down"))
@@ -2648,11 +2785,11 @@ for (gene in names(de_res_gene)) {
   df$cell_count_iNeuron <- gene_counts_ineuron[gene]
   
   # iPSC regulation
-  df$p_adj_iPSC <- p.adjust(p = df$p_weight_iPSC, method = "bonferroni")
+  df$FDR_iPSC <- p.adjust(p = df$p_weight_iPSC, method = "fdr")
   df <- df %>% dplyr::mutate(
     regulation_iPSC = dplyr::case_when(
-      p_adj_iPSC < 0.05 & log2FC_iPSC >= 0.2 ~ "up",
-      p_adj_iPSC < 0.05 & log2FC_iPSC <= -0.2 ~ "down"  
+      FDR_iPSC < 0.05 & log2FC_iPSC >= 0.2 ~ "up",
+      FDR_iPSC < 0.05 & log2FC_iPSC <= -0.2 ~ "down"  
     )
   )
   df$regulation_iPSC <- factor(x = df$regulation_iPSC, levels = c("up", "down"))
@@ -2686,7 +2823,7 @@ for (gene in names(de_res_gene)) {
 #qs_save(object = de_list2, file = "iNeuron_target_DEGs/weighted_Mixscale_DEGs_per_target-gene-processed.qs2")
 
 # Merging all gRNA DEGs into one dataframe
-degs <- de_list2[["KMT2C"]]
+degs <- de_list2[["KMT2A"]]
 ```
 
 ```{r}
@@ -2717,16 +2854,173 @@ for (g in names(de_list2)) {
     labs(x = "log2(FC) - iPSCs", y = "log2(FC) - iNeurons", color = "Multi-cell Regulation", title = g) + 
     theme_classic() + 
     theme(plot.title = element_text(hjust = 0.5))
-  #print(deg_correlation_plot)
+  print(deg_correlation_plot)
   
   # Saving the plots
-  ggsave(plot = deg_correlation_plot, filename = paste0("integrative_figures/iNeuron_iPSC_DEG_scatter/", g, "_DEG_scatter.png"), width = 2300, height = 2000, units = "px", dpi = 300)
+  #ggsave(plot = deg_correlation_plot, filename = paste0("integrative_figures/iNeuron_iPSC_DEG_scatter/", g, "_DEG_scatter.png"), width = 2300, height = 2000, units = "px", dpi = 300)
 }
 ```
 
 
+```{r}
+# Number of DEGs per target gene
+genes_to_analyze <- c("SETD1B", "KMT2B", "KMT2A", "SETBP1", "KMT2C")  #"SETD1A"
+de_merge <- dplyr::bind_rows(de_list2) %>% dplyr::filter(target_gene %in% genes_to_analyze)
+de_merge <- table(de_merge$target_gene, de_merge$regulation_iNeuron) %>% as.data.frame()
+colnames(de_merge) <- c("target_gene", "regulation", "degs")
+de_merge <- de_merge %>%  dplyr::mutate(plot_val = ifelse(regulation == "down", -degs, degs))
+de_merge$target_gene <- factor(x = de_merge$target_gene, levels = genes_to_analyze)
 
-## 14.3 Upset Plot for DEGs from different statistical tests
+mirror_plot <- ggplot(de_merge, aes(x = target_gene, y = plot_val, fill = regulation)) +
+  geom_col(width = 0.7) +
+  geom_hline(yintercept = 0, color = "black") +
+  geom_text(data = subset(de_merge, regulation == "up"), aes(label = degs), vjust = -0.5, size = 5) +
+  geom_text(data = subset(de_merge, regulation == "down"), aes(label = degs), vjust = 1.5, size = 5) +
+  scale_fill_manual(values = c("up" = "#C0392B", "down" = "#2471A3")) +
+  scale_y_continuous(labels = abs, limits = c(-1300, 2200)) +
+  labs(y = "Number of DEGs", x = "Target Gene") +
+  theme_classic(base_size = 18) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+print(mirror_plot)
+
+# Saving the plot
+#ggsave(plot = mirror_plot, filename = "integrative_figures/iNeuron_mirror_DEGs.png", width = 2000, height = 2000, units = "px", dpi = 300)
+```
+
+
+
+
+
+## 14.3 Upset Plot for Shared vs Divergent DEGs
+
+```{r}
+# Up or downregulated, irrespective of regulation direction
+genes_to_analyze <- c("KMT2A", "KMT2B", "KMT2C", "SETBP1", "SETD1B")  #"SETD1A"
+de_merge <- dplyr::bind_rows(de_list2)
+
+# Regulation in iNeurons
+de_results_summary <- de_merge %>%
+  dplyr::filter(regulation_iNeuron %in% c("up", "down")) %>%  #iNeuron or iPSC - up or down
+  dplyr::group_by(target_gene) %>%  #optional to group by regulation direction
+  dplyr::summarise(
+    n_DEGs = n(),
+    gene_list = list(gene)
+  )
+
+de_list_summary <- list("KMT2A" = unlist(de_results_summary %>% dplyr::filter(target_gene == "KMT2A") %>% dplyr::pull(gene_list)),
+                        "KMT2B" = unlist(de_results_summary %>% dplyr::filter(target_gene == "KMT2B") %>% dplyr::pull(gene_list)),
+                        "KMT2C" = unlist(de_results_summary %>% dplyr::filter(target_gene == "KMT2C") %>% dplyr::pull(gene_list)),
+                        "SETBP1" = unlist(de_results_summary %>% dplyr::filter(target_gene == "SETBP1") %>% dplyr::pull(gene_list)),
+                        "SETD1B" = unlist(de_results_summary %>% dplyr::filter(target_gene == "SETD1B") %>% dplyr::pull(gene_list)))
+                        #"SETD1A" = unlist(de_results_summary %>% dplyr::filter(target_gene == "SETD1A") %>% dplyr::pull(gene_list)),
+```
+
+```{r}
+m1 <- make_comb_mat(de_list_summary)
+
+#png(file = "integrative_figures/iNeuron_upset_DEG_upset_ALL.png", width = 2500, height = 1200, units = "px", res = 300)
+#pdf(file = paste0("iNeuron_figures/upset/statistical_DEG_upset_", tg, ".pdf"), width = 8, height = 4.5)
+UpSet(m1,
+      set_order = c("KMT2A", "KMT2B", "KMT2C", "SETBP1", "SETD1B"), 
+      comb_col = c("black", "#5993ff", "#16b884", "#ffa600", "#ff0000")[comb_degree(m1)], # Color by degree
+      top_annotation = upset_top_annotation(m1, add_numbers = TRUE, annotation_name_side = "left"),
+      right_annotation = upset_right_annotation(m1, add_numbers = TRUE),
+      column_title = "Overlap of DEGs across Perturbations: All DEGs")
+#dev.off()
+```
+
+```{r}
+# Heatmap of top shared DEGs
+comb_sizes <- comb_size(m1)
+# Create a list where each element contains the genes for that specific overlap
+overlap_list <- lapply(names(comb_sizes), function(x) extract_comb(m1, x))
+names(overlap_list) <- comb_names
+
+# All 5 overlap
+genes_overlap <- extract_comb(m1, '11111')
+genes_to_analyze <- c("KMT2A", "KMT2B", "KMT2C", "SETBP1", "SETD1B")  #"SETD1A"
+de_merge <- dplyr::bind_rows(de_list2) %>% dplyr::filter(target_gene %in% genes_to_analyze) %>% dplyr::filter(gene %in% genes_overlap)
+
+# grouping by absolute log2FC in iNeurons
+de_merge <- de_merge %>% dplyr::group_by(gene) %>% 
+  dplyr::mutate(avg_log2FC = mean(abs(log2FC_iNeuron))) %>% 
+  dplyr::arrange(desc(avg_log2FC), gene)
+top_genes <- unique(de_merge$gene)[1:25]
+de_merge <- de_merge[de_merge$gene %in% top_genes, ]
+
+# Plotting
+levels_list <- unique(de_merge$gene)
+shading_data <- data.frame(
+  ymin = seq(1, length(levels_list), by = 2) - 0.5,
+  ymax = seq(1, length(levels_list), by = 2) + 0.5
+)
+
+deg_dotplot <- de_merge %>% ggplot(aes(x = log2FC_iNeuron, y = reorder(gene, avg_log2FC), color = target_gene)) +
+  geom_rect(data = shading_data, 
+            aes(xmin = -Inf, xmax = Inf, ymin = ymin, ymax = ymax),
+            fill = "lightgray", alpha = 0.5, inherit.aes = FALSE) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50", linewidth = 0.8) +
+  geom_jitter(alpha = 0.5, size = 3, width = 0, height = 0.2) +
+  #stat_summary(fun = mean, geom = "point", shape = 18, size = 5, color = "black") +
+  labs(x = expression(log[2] * "(Fold Change)"), y = "", title = "Top 25 Shared Differentially Expressed Genes", color = "Target Gene") +
+  theme_classic(base_size = 20) + 
+  theme(
+    plot.title = element_text(hjust = 0.5, size = rel(1.1)),
+    axis.text = element_text(color = "black")
+  )
+print(deg_dotplot)
+
+# Saving the plot
+#ggsave(plot = deg_dotplot, filename = "integrative_figures/iNeuron_top_shared_DEGs.png", width = 3000, height = 3000, units = "px", dpi = 300)
+```
+
+
+
+```{r}
+# Only down or only up
+genes_to_analyze <- c("KMT2A", "KMT2B", "KMT2C", "SETD1A", "SETD1B")
+
+de_merge <- dplyr::bind_rows(de_list2)
+
+# Regulation in iNeurons
+de_results_summary <- de_merge %>%
+  dplyr::filter(regulation_iNeuron %in% c("up")) %>%  #iNeuron or iPSC - only down or up
+  dplyr::group_by(target_gene) %>%  #optional to group by regulation direction
+  dplyr::summarise(
+    n_DEGs = n(),
+    gene_list = list(gene)
+  )
+
+de_list_summary <- list("KMT2A" = unlist(de_results_summary %>% dplyr::filter(target_gene == "KMT2A") %>% dplyr::pull(gene_list)),
+                        "KMT2B" = unlist(de_results_summary %>% dplyr::filter(target_gene == "KMT2B") %>% dplyr::pull(gene_list)),
+                        "KMT2C" = unlist(de_results_summary %>% dplyr::filter(target_gene == "KMT2C") %>% dplyr::pull(gene_list)),
+                        "SETD1A" = unlist(de_results_summary %>% dplyr::filter(target_gene == "SETD1A") %>% dplyr::pull(gene_list)),
+                        "SETD1B" = unlist(de_results_summary %>% dplyr::filter(target_gene == "SETD1B") %>% dplyr::pull(gene_list)))
+```
+
+```{r}
+m1 <- make_comb_mat(de_list_summary)
+
+#png(file = "integrative_figures/iNeuron_upset_DEG_upset_UP.png", width = 2500, height = 1500, units = "px", res = 300)
+#pdf(file = paste0("iNeuron_figures/upset/statistical_DEG_upset_", tg, ".pdf"), width = 8, height = 4.5)
+UpSet(m1,
+      set_order = c("KMT2A", "KMT2B", "KMT2C", "SETD1A", "SETD1B"), 
+      comb_col = c("red", "#377EB8", "#4DAF4A", "orange", "purple")[comb_degree(m1)], # Color by degree
+      top_annotation = upset_top_annotation(m1, add_numbers = TRUE, annotation_name_side = "left"),
+      right_annotation = upset_right_annotation(m1, add_numbers = TRUE),
+      column_title = "Overlap of Upregulated DEGs across Perturbations")  #down or upregulated
+#dev.off()
+```
+
+
+
+
 
 ```{r}
 deseq_deg_list <- qs_read(file = "iNeuron_target_DEGs/DESeq2_DEGs_per_target-gene.qs2")
@@ -2769,19 +3063,6 @@ de_list_summary <- list("DESeq2" = unlist(de_results_summary %>% dplyr::filter(s
                         "Wilcox" = unlist(de_results_summary %>% dplyr::filter(statistical_test == "Wilcox") %>% dplyr::pull(gene_list)))
 ```
 
-```{r}
-m1 <- make_comb_mat(de_list_summary)
-
-#png(file = paste0("iNeuron_figures/upset/statistical_DEG_upset_", tg, ".png"), width = 2500, height = 1500, units = "px", res = 300)
-#pdf(file = paste0("iNeuron_figures/upset/statistical_DEG_upset_", tg, ".pdf"), width = 8, height = 4.5)
-UpSet(m1,
-      set_order = c("DESeq2", "Mixscale", "Wilcox"), 
-      comb_col = c("#E41A1C", "#377EB8", "#4DAF4A")[comb_degree(m1)], # Color by degree
-      top_annotation = upset_top_annotation(m1, add_numbers = TRUE, annotation_name_side = "left"),
-      right_annotation = upset_right_annotation(m1, add_numbers = TRUE),
-      column_title = paste("Overlap of DEGs across Statistical Tests: ", tg))
-#dev.off()
-```
 
 
 
@@ -2793,11 +3074,33 @@ UpSet(m1,
 ```{r}
 #kegg <- fgsea::gmtPathways("pathways/enrichment/c2.cp.kegg_medicus.v2026.1.Hs.symbols.gmt")
 kegg <- fgsea::gmtPathways("pathways/enrichment/c2.cp.kegg_legacy.v2026.1.Hs.symbols.gmt")
+reac <- fgsea::gmtPathways("pathways/enrichment/c2.cp.reactome.v2026.1.Hs.symbols.gmt")
+gobp <- fgsea::gmtPathways("pathways/enrichment/c5.go.bp.v2026.1.Hs.symbols.gmt")
 ```
 
 ```{r}
-degs <- de_list2[["NSD1"]]
+# Custom genomics england gene lists
+ge_files <- Sys.glob("pathways/genomics_england/*.tsv")
+ge_list <- list()
+for (f in ge_files) {
+  filename <- tools::file_path_sans_ext(basename(f))
+  #print(filename)
+  df <- read.csv(file = f, sep = "\t")
+  genes <- df$Gene.Symbol
+  ge_list[[filename]] <- genes
+}
 
+# Making a dataframe
+ge_df <- enframe(ge_list, name = "ge_pathway", value = "genes") %>% unnest(genes)
+
+# Filtering the list for only relevant NDD pathways for COMPASS genes
+ge_list <- ge_list[c("Autism Spectrum Disorder", "Intellectual disability", "Early onset or syndromic epilepsy", "Childhood onset dystonia, chorea or related movement disorder", "Cerebral malformation", "Severe microcephaly")]
+names(ge_list) <- c("Autism Spectrum Disorder", "Intellectual Disability", "Early Onset Epilepsy", "Childhood Dystonia", "Cerebral Malformation", "Severe Microcephaly")
+
+#write.csv(x = ge_df, file = "pathways/genomics_england_gene_lists.csv", row.names = FALSE)
+```
+
+```{r}
 gsea_list <- list()
 for (target_gene in names(de_list2)) {
   
@@ -2808,7 +3111,7 @@ for (target_gene in names(de_list2)) {
   fc_rank_ineuron <- fc_ineuron$log2FC_iNeuron
   names(fc_rank_ineuron) <- fc_ineuron$gene
   fc_rank_ineuron <- fc_rank_ineuron + rnorm(length(fc_rank_ineuron), sd = 1e-10)
-  gsea_ineuron <- fgsea(pathways = kegg,
+  gsea_ineuron <- fgsea(pathways = gobp,
                         stats = fc_rank_ineuron,
                         eps = 0.0,
                         minSize = 15,
@@ -2825,7 +3128,7 @@ for (target_gene in names(de_list2)) {
   fc_rank_ipsc <- fc_ipsc$log2FC_iPSC
   names(fc_rank_ipsc) <- fc_ipsc$gene
   fc_rank_ipsc <- fc_rank_ipsc + rnorm(length(fc_rank_ipsc), sd = 1e-10)
-  gsea_ipsc <- fgsea(pathways = kegg,
+  gsea_ipsc <- fgsea(pathways = gobp,
                      stats = fc_rank_ipsc,
                      eps = 0.0,
                      minSize = 15,
@@ -2847,18 +3150,104 @@ for (target_gene in names(de_list2)) {
 
 ```{r}
 # Saving the file
-#qs_save(object = gsea_list, file = "integrative_tables/fgsea_results_list.qs2")
+#qs_save(object = gsea_list, file = "integrative_tables/fgsea_results_list_GOBP.qs2")
 ```
 
 ```{r}
 gsea_results_full <- dplyr::bind_rows(gsea_list)
-gsea_results_full <- gsea_results_full %>% dplyr::mutate(pathway = pathway %>% str_remove("^KEGG_") %>% str_replace_all("_", " ") %>% str_to_sentence() %>% str_trunc(width = 100))
+gsea_results_full <- gsea_results_full %>% dplyr::mutate(pathway = pathway %>% str_remove("^GOBP_") %>% str_replace_all("_", " ") %>% str_to_lower())   #%>% str_trunc(width = 100))
 
+# RevyGO on iNeurons
+revy_list <- list()
+for (target_gene in names(gsea_list)) {
+  df <- gsea_list[[target_gene]]
+  df <- df %>% dplyr::filter(cell_type == "iNeuron") %>% dplyr::mutate(pathway = pathway %>% str_remove("^GOBP_") %>% str_replace_all("_", " ") %>% str_to_lower()) 
+  goterms <- Term(GOTERM)
+  go_map <- data.frame(GOID=names(goterms), pathway=goterms)
+  df <- merge(x = df, y = go_map, by = "pathway", all.x = TRUE)
+  df <- df[!is.na(df$GOID), ]
+  df <- df %>% dplyr::arrange(padj)
+  
+  # Revygo Similarity
+  simMatrix <- calculateSimMatrix(df$GOID,
+                                  orgdb="org.Hs.eg.db",
+                                  ont="BP",
+                                  method="Rel")
+  scores <- setNames(-log10(df$padj), df$GOID)
+  reducedTerms <- reduceSimMatrix(simMatrix,
+                                  scores,
+                                  threshold=0.7,
+                                  orgdb="org.Hs.eg.db")
+  reducedTerms <- reducedTerms %>% dplyr::arrange(desc(score)) %>% dplyr::select(go, parent, score, parentTerm)
+  colnames(reducedTerms) <- c("GOID", "parent_GOID", "score", "parentTerm")
+  reduced_with_direction <- merge(df, reducedTerms, by = "GOID", all.x = TRUE)
+  
+  # Section of top 10 up and downregulated pathways
+  top_10_up <- reduced_with_direction %>%
+    filter(NES > 0) %>%
+    arrange(padj) %>%
+    distinct(parentTerm, .keep_all = TRUE) %>% 
+    head(10)
+  
+  # 3. Identify the Top 10 DOWN-regulated parent terms
+  top_10_down <- reduced_with_direction %>%
+    filter(NES < 0) %>%
+    arrange(padj) %>%
+    distinct(parentTerm, .keep_all = TRUE) %>% 
+    head(10)
+  
+  # 4. Combine for your final "Top 20" list
+  final_terms_df <- bind_rows(top_10_up, top_10_down)
+  revy_list[[target_gene]] <- final_terms_df
+}
+```
+
+```{r}
+revy_df <- dplyr::bind_rows(revy_list)
+gene_filt <- c("KMT2A", "KMT2B", "KMT2C", "SETBP1", "SETD1B")
+revy_df <- revy_df[revy_df$target_gene %in% gene_filt] %>% dplyr::filter(padj < 0.01)
+revy_df <- gsea_results_full[gsea_results_full$pathway %in% revy_df$parentTerm] %>% dplyr::filter(target_gene %in% gene_filt) %>% dplyr::filter(cell_type == "iNeuron")
+ndd_pathway_vector <- c(
+  # --- 1. Epigenetic & Early Fate ---
+  "methylation",                                     # Direct link to COMPASS/H3K4me
+  "neuron fate commitment",                          # Essential for iNeuron transition
+  "stem cell proliferation",                         # Neurogenesis/progenitor stage
+  "pattern specification process",                   # Early brain layout
+  "diencephalon development",                        # Regional brain specificity
+  
+  # --- 2. Structural Maturation & "Wiring" ---
+  "cell morphogenesis involved in neuron differentiation", 
+  "axon development",
+  "neuron projection guidance",
+  "cranial nerve development",
+  "apoptotic process involved in development",       # Corrective pruning/cell death
+  
+  # --- 3. Synaptic Assembly & Adhesion ---
+  "synapse organization",
+  "regulation of synapse structure or activity",
+  "protein localization to synapse",                 # Mechanistic/trafficking
+  "cell junction organization",                      # Synaptic stability/adhesion
+  
+  # --- 4. Functional Signaling & Ion Flux ---
+  "synaptic signaling",
+  "neurotransmitter transport",                      # Functional output
+  "neuropeptide signaling pathway",
+  "regulation of membrane potential",
+  "potassium ion transport",
+  "monoatomic ion transport"
+)
+#revy_df <- revy_df[revy_df$pathway %in% ndd_pathway_vector, ]
+revy_df <- revy_df %>% dplyr::mutate(pathway = pathway %>%  str_trunc(width = 40))
+```
+
+
+```{r}
 # iNeuron or iPSC
-gsea_results <- gsea_results_full[gsea_results_full$cell_type == "iPSC", ]
-sig_paths <- gsea_results %>% dplyr::filter(padj < 0.10) %>% dplyr::pull(pathway)
-gsea_results <- gsea_results %>% dplyr::filter(pathway %in% sig_paths)
-heat <- gsea_results %>%
+#gsea_results <- gsea_results_full[gsea_results_full$cell_type == "iPSC", ]
+#gsea_results$pathway <- gsub(pattern = "Reactome ", replacement = "", x = gsea_results$pathway)
+#sig_paths <- gsea_results %>% dplyr::filter(padj < 0.05) %>% dplyr::pull(pathway)
+#gsea_results <- gsea_results %>% dplyr::filter(pathway %in% sig_paths)
+heat <- revy_df %>%
   dplyr::select(pathway, target_gene, NES, padj.signif) %>%
   pivot_wider(
     names_from = target_gene, 
@@ -2883,7 +3272,8 @@ my_color <- colorRampPalette(c("blue", "white", "red"))(palette_length)
 max_val <- max(abs(nes_mat), na.rm = TRUE)
 my_breaks <- seq(-max_val, max_val, length.out = palette_length + 1)
 
-#png(filename = "integrative_figures/iPSC_GSEA_pathway_heatmap.png", width = 3000, height = 3000, units = "px", res = 300)
+#png(filename = "integrative_figures/iNeuron_GSEA_pathway_heatmap_GOBP.png", width = 2500, height = 2500, units = "px", res = 300)
+pdf(file = "integrative_figures/iNeuron_GSEA_pathway_heatmap_GOBP.pdf", width = 7, height = 7)
 pheatmap(
   as.matrix(nes_mat),
   color = my_color,
@@ -2893,11 +3283,10 @@ pheatmap(
   number_color = "black",    # Star color
   clustering_distance_rows = "euclidean",
   clustering_distance_cols = "euclidean",
-  main = "iPSC GSEA Pathway Enrichment (Stars = padj < 0.05)"
+  main = "iNeuron GSEA Pathway Enrichment"
 )
-#dev.off()
+dev.off()
 ```
-
 
 
 

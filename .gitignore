@@ -22,3 +22,4 @@ CLEANSER/iPSC_protospacer_calls_per_cell_CLEANSER.csv
 iNeuron_target_DEGs/*.qs2
 NDD_iNeuron_gRNA_DEGs/*.qs2
 integrative_tables/*.qs2
+integrative_tables/permute_vs_observed_p-values.tsv
